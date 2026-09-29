@@ -1,0 +1,4 @@
+[submodule "external/xboxrecomp"]
+	path = external/xboxrecomp
+	url = https://github.com/phobos665/xboxrecomp.git
+	branch = main

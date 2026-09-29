@@ -106,6 +106,30 @@ extern RECOMP_MANUAL_TLS uint32_t g_icall_saved_esp;
  * means this title was lifted before the macros published it. */
 extern RECOMP_MANUAL_TLS uint32_t g_icall_dispatch_form;
 
+/* ── Title defaults ────────────────────────────────────────── */
+
+/*
+ * 30 fps. At 60 the game logic misbehaves (reported in play, 29 Sep 2026):
+ * the console runs this title at 30, and presenting twice as often is not
+ * something its frame-stepped logic was written for. RECOMP_FPS_CAP=30 is the
+ * strict console cadence (xbox_memory_layout.c, the flip gate).
+ *
+ * Set before main, and only when the variable is not already set, so
+ * RECOMP_FPS_CAP=60 or =0 still wins for experiments. Because the environment
+ * outranks the settings file, the launcher's frame-cap row has no effect on
+ * this title while the default is here; F10 still steps the cap in game.
+ */
+#if defined(_MSC_VER)
+static void __cdecl dc3_defaults(void)
+{
+    if (!getenv("RECOMP_FPS_CAP"))
+        _putenv("RECOMP_FPS_CAP=30");
+}
+#pragma section(".CRT$XCU", read)
+__declspec(allocate(".CRT$XCU")) void (__cdecl *dc3_defaults_init)(void) = dc3_defaults;
+#pragma comment(linker, "/include:dc3_defaults_init")
+#endif
+
 /* ── Manual function overrides ─────────────────────────────── */
 
 /*

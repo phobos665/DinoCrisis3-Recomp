@@ -15,18 +15,33 @@ code.
 
 ## Status (29 Sep 2026)
 
-- Boots, and renders its intro, title screen, main menu and difficulty select.
-- **Does not reach gameplay yet.** Getting it there is the current work.
-- In the front end it runs at roughly 35–55 fps. That's measured over 70 s runs with
-  scripted input, and it varies with the screen.
-- Crashes in about 1 in 4 driven runs, about 1,390 frames in. The sequence always
-  starts the same way: a null function-pointer call from guest `0x002324EB`, then
-  calls to `0x04XX04XX`-shaped addresses (data being called as code), then an
-  access violation. An earlier crash inside the title's `D3DDevice_Swap` body
-  (`sub_001CA910`) showed the same `0x04XX04XX` targets, so both are probably the
-  same corruption.
-- No overrides yet. Seven seeds, for thread start routines and indirect-call
-  targets the disassembler misses.
+- **Reaches gameplay and plays.** Intro, title screen, menus, difficulty select, the
+  opening movie (Bink, skippable with START), the controls tutorial, then the first
+  room with the player character, the HUD, and the Status, Options and Map screens.
+- 60 fps in gameplay. A five-minute scripted session of walking and firing ran at
+  60 fps throughout, with no crash and no stall.
+- Needs the toolkit branch `fix/dc3-into-gameplay` (the submodule pin). It carries
+  four general fixes, found on this title:
+  - `IDirectSoundBuffer_Pause` is replaced. The music fade after difficulty select
+    waited for a paused buffer to stop playing, and it never did.
+  - `MmFreeContiguousMemory` frees. The front end left 62 of 64 MB of contiguous
+    memory allocated, so the first stage's 5 MB request failed, and the stage file
+    was read over the game's own code. That was the source of the old intermittent
+    crash (`0x04XX04XX` wild calls).
+  - A vertex attribute at an unaligned offset is realigned for the host. Skinned
+    meshes (the player, the dinosaurs) put their weights after 6-byte bone
+    indices, so they exploded into screen-sized triangles. That was the
+    "flickering".
+  - Fixed-function lighting (material, lights, `D3DRS_LIGHTING`) is forwarded. The
+    map's rooms were flat white; they are now the lit blue hologram.
+- Not yet checked: progress past the first room (doors, loading the next area),
+  combat against dinosaurs, in-game cutscenes, saving and loading.
+- To check by eye: with lighting forwarded, some walls in the first room are much
+  darker than before. Probably correct, but not compared with a console.
+- A null function-pointer call inside Bink (from guest `0x002324EB`, a callback
+  field supplied to Bink as 0) is skipped during movies. Harmless so far.
+- No overrides. Seven seeds, for thread start routines and indirect-call targets
+  the disassembler misses.
 
 ## Requirements
 
@@ -76,12 +91,16 @@ looks for the game in this order:
 F9 shows the frame rate, F10 steps through the frame caps, and F11 saves a
 screenshot and a replayable capture beside the executable. Closing the window exits.
 
-A scripted path that reaches the menus (timing-sensitive, because the frame rate
-varies, so it can land on a different screen from run to run):
+A scripted path from boot to gameplay on a fresh profile: start through the title
+screen, Normal difficulty, START to skip the opening movie, and A through the
+controls tutorial. It's in the first room at about 60 s, and then walks forward.
+Times are from the first pad read:
 
 ```powershell
-$env:RECOMP_INPUT_SEQ = "20000:start,23000:start,26000:start,30000:a,34000:a,38000:a"
+$env:RECOMP_INPUT_SEQ = "20000:start,23000:start,26000:start,30000:a,34000:a,45000:start,50000:a,53000:a,56000:a,59000:a,62000:lstick_up:3000"
 ```
+
+Add `,76000:black` to open the Map, or `,76000:back` for Status (B closes either).
 
 The toolkit's switches all apply; see `external/xboxrecomp/CLAUDE.md` and
 `docs/technical/` there.
